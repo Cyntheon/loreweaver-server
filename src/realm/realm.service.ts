@@ -27,7 +27,8 @@ export class RealmService {
       where,
       select: {
         author: true,
-        slug: true
+        slug: true,
+        slugDuplicateCount: true
       }
     });
 
@@ -37,7 +38,9 @@ export class RealmService {
       });
     }
 
-    return `/@${realm.author.username}/r/${realm.slug}`;
+    return `/@${realm.author.username}/r/${realm.slug}${
+      realm.slugDuplicateCount ? `.${realm.slugDuplicateCount}` : ""
+    }`;
   }
 
   async getOrGenerateRealmShortcodeUrl(
