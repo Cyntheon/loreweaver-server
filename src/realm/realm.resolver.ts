@@ -40,11 +40,13 @@ export class RealmResolver {
 
   @Mutation(() => Realm, {nullable: false})
   async createRealm(@Args() args: CreateOneRealmArgs): Promise<Realm> {
+    // @ts-ignore
     return this.realms.createRealm(args);
   }
 
   @Mutation(() => Realm, {nullable: false})
   async updateRealm(@Args() args: UpdateOneRealmArgs): Promise<Realm> {
+    // @ts-ignore
     return this.realms.updateRealm(args);
   }
 

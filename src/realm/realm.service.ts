@@ -1,25 +1,43 @@
-import {ContentType, FollowTargetType, ShortcodeType} from "@generated/prisma";
+import {FollowTargetType, ShortcodeType} from "@generated/prisma";
 import {Injectable} from "@nestjs/common";
 import {Prisma, Realm} from "@prisma/client";
 import {GraphQLError} from "graphql/error";
+import {Override, PickPartial} from "../@types";
+import {LoreService} from "../lore/lore.service";
 import {PrismaService} from "../prisma/prisma.service";
 import {ShortcodeService} from "../shortcode/shortcode.service";
 import {SlugService} from "../slug/slug.service";
+import {UserService} from "../user/user.service";
 
-type RealmCreateArgs = Omit<Prisma.RealmCreateArgs, "data"> & {
-  data: Prisma.RealmCreateInput;
-};
+type RealmCreateArgs = Override<
+  Prisma.RealmCreateArgs,
+  {
+    data: PickPartial<
+      Prisma.RealmCreateInput,
+      "baseSlug" | "slugDiscriminator" | "followTarget"
+    >;
+  }
+>;
 
 @Injectable()
 export class RealmService {
   constructor(
     private prisma: PrismaService,
     private slugService: SlugService,
-    private shortcodeService: ShortcodeService
+    private shortcodeService: ShortcodeService,
+    private userService: UserService,
+    private loreService: LoreService
   ) {}
 
   async getRealm(args: Prisma.RealmFindUniqueArgs): Promise<Realm | null> {
     return this.prisma.realm.findUnique(args);
+  }
+
+  calculateRealmSlug(args: {baseSlug: string; slugDiscriminator: number}) {
+    return this.slugService.calculateSlug(
+      args.baseSlug,
+      args.slugDiscriminator
+    );
   }
 
   async getRealmUrl(where: Prisma.RealmWhereUniqueInput): Promise<string> {
@@ -27,8 +45,8 @@ export class RealmService {
       where,
       select: {
         author: true,
-        slug: true,
-        slugDuplicateCount: true
+        baseSlug: true,
+        slugDiscriminator: true
       }
     });
 
@@ -38,9 +56,10 @@ export class RealmService {
       });
     }
 
-    return `/@${realm.author.username}/r/${realm.slug}${
-      realm.slugDuplicateCount ? `.${realm.slugDuplicateCount}` : ""
-    }`;
+    const userSlug = this.userService.calculateUserSlug(realm.author);
+    const realmSlug = this.calculateRealmSlug(realm);
+
+    return `/${userSlug}/r/${realmSlug}`;
   }
 
   async getOrGenerateRealmShortcodeUrl(
@@ -79,11 +98,40 @@ export class RealmService {
         }
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       return this.shortcodeService.getShortcodeUrl({
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         id: updatedRealm.shortcodeId!
       });
     });
+  }
+
+  async findLowestAvailableDiscriminator({
+    ignoreId,
+    baseSlug,
+    authorId
+  }: {
+    ignoreId?: string;
+    baseSlug: string;
+    authorId: string;
+  }): Promise<number> {
+    const realmsWithSameBaseSlug = await this.getRealms({
+      where: {
+        id: ignoreId ? {not: ignoreId} : undefined,
+        authorId,
+        baseSlug
+      },
+      select: {
+        slugDiscriminator: true
+      },
+      orderBy: {
+        slugDiscriminator: "asc"
+      }
+    });
+
+    return this.slugService.findLowestAvailableDiscriminator(
+      realmsWithSameBaseSlug,
+      {preSorted: true}
+    );
   }
 
   async getRealms(args: Prisma.RealmFindManyArgs): Promise<Realm[]> {
@@ -91,14 +139,14 @@ export class RealmService {
   }
 
   async createRealm(args: RealmCreateArgs): Promise<Realm> {
-    const slug = this.slugService.slugify(args.data.title);
-
     return this.prisma.$transaction(async (prisma) => {
+      const baseSlug = this.slugService.slugify(args.data.title);
+
       const realm = await prisma.realm.create({
         ...args,
         data: {
           ...args.data,
-          slug,
+          baseSlug,
           followTarget: {
             create: {
               type: FollowTargetType.Realm
@@ -110,16 +158,22 @@ export class RealmService {
       await prisma.realm.update({
         where: {id: realm.id},
         data: {
-          representationLore: {
-            create: {
-              realm: {connect: {id: realm.id}},
-              author: {connect: {id: realm.authorId}},
-              title: realm.title,
-              slug: realm.slug,
-              content: {
-                create: {type: ContentType.Lore}
-              },
-              contents: "{}"
+          slugDiscriminator: await this.findLowestAvailableDiscriminator({
+            ignoreId: realm.id,
+            baseSlug,
+            authorId: realm.authorId
+          })
+        }
+      });
+
+      await this.loreService.createLore({
+        data: {
+          realm: {connect: {id: realm.id}},
+          author: {connect: {id: realm.authorId}},
+          title: realm.title,
+          representsRealm: {
+            connect: {
+              id: realm.id
             }
           }
         }
@@ -140,20 +194,23 @@ export class RealmService {
             : args.data.title.set;
 
         if (newTitle) {
-          const slug = this.slugService.slugify(newTitle);
+          const baseSlug = this.slugService.slugify(newTitle);
 
           await prisma.realm.update({
-            where: {id: realm.id},
+            where: {
+              id: realm.id
+            },
             data: {
-              slug
+              baseSlug
             }
           });
 
-          await prisma.lore.update({
-            where: {id: realm.representationLoreId as string},
+          await this.loreService.updateLore({
+            where: {
+              id: realm.representationLoreId as string
+            },
             data: {
-              title: newTitle,
-              slug
+              title: newTitle
             }
           });
         }

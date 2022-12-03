@@ -17,9 +17,9 @@ import {RealmModule} from "./realm/realm.module";
 import {LoreModule} from "./lore/lore.module";
 import {PostModule} from "./post/post.module";
 import {CollectionModule} from "./collection/collection.module";
-import { SlugModule } from './slug/slug.module';
-import { ShortcodeModule } from './shortcode/shortcode.module';
-import { CommentModule } from './comment/comment.module';
+import {SlugModule} from "./slug/slug.module";
+import {ShortcodeModule} from "./shortcode/shortcode.module";
+import {CommentModule} from "./comment/comment.module";
 
 @Module({
   imports: [

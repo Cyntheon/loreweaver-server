@@ -13,6 +13,10 @@ export class UserService {
     return this.prisma.user.findUnique(args);
   }
 
+  calculateUserSlug(args: {username: string}): string {
+    return `@${args.username}`;
+  }
+
   async getUserUrl(where: Prisma.UserWhereUniqueInput): Promise<string> {
     const user = await this.prisma.user.findUnique({
       where,
@@ -25,7 +29,7 @@ export class UserService {
       throw new Error("User not found");
     }
 
-    return `/@${user.username}`;
+    return `/${this.calculateUserSlug(user)}`;
   }
 
   async getUserId(where: Prisma.UserWhereUniqueInput): Promise<string | null> {
@@ -50,7 +54,9 @@ export class UserService {
 
     const {password, email, ...userData} = data;
 
+    // @ts-ignore
     return this.prisma.user.create({
+      // @ts-ignore
       data: {
         ...userData,
         authData: {

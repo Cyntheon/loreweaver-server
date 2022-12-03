@@ -65,6 +65,7 @@ export class UserResolver {
   @Mutation(() => User, {nullable: false})
   @UseGuards(JwtAuthGuard, UserSelfGuard)
   async updateUser(@Args() args: UpdateOneUserArgs): Promise<User> {
+    // @ts-ignore
     return this.userService.updateUser(args);
   }
 

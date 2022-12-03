@@ -1,6 +1,5 @@
-import {ContentType, ShortcodeType} from "@generated/prisma";
 import {Injectable} from "@nestjs/common";
-import {Post, Prisma} from "@prisma/client";
+import {Post, Prisma, ContentTargetType, ShortcodeType} from "@prisma/client";
 import {GraphQLError} from "graphql/error";
 import {PrismaService} from "../prisma/prisma.service";
 import {ShortcodeService} from "../shortcode/shortcode.service";
@@ -53,9 +52,9 @@ export class PostService {
             type: ShortcodeType.Post
           }
         },
-        content: {
+        contentTarget: {
           create: {
-            type: ContentType.Post
+            type: ContentTargetType.Post
           }
         }
       }

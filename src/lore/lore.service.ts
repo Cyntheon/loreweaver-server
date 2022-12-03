@@ -1,25 +1,43 @@
-import {ContentType, ShortcodeType} from "@generated/prisma";
 import {Injectable} from "@nestjs/common";
-import {Prisma, Lore} from "@prisma/client";
+import {Lore, Prisma, ContentTargetType, ShortcodeType} from "@prisma/client";
 import {GraphQLError} from "graphql/error";
+import {Override, PickPartial} from "../@types";
 import {PrismaService} from "../prisma/prisma.service";
+import {RealmService} from "../realm/realm.service";
 import {ShortcodeService} from "../shortcode/shortcode.service";
 import {SlugService} from "../slug/slug.service";
+import {UserService} from "../user/user.service";
+import {stringOrSetObjectToString} from "../util/stringOrSetObjectToString";
 
-type LoreCreateArgs = Omit<Prisma.LoreCreateArgs, "data"> & {
-  data: Prisma.LoreCreateInput;
-};
+type LoreCreateArgs = Override<
+  Prisma.LoreCreateArgs,
+  {
+    data: PickPartial<
+      Prisma.LoreCreateInput,
+      "baseSlug" | "slugDiscriminator" | "contentTarget"
+    >;
+  }
+>;
 
 @Injectable()
 export class LoreService {
   constructor(
     private prisma: PrismaService,
     private slugService: SlugService,
-    private shortcodeService: ShortcodeService
+    private shortcodeService: ShortcodeService,
+    private userService: UserService,
+    private realmService: RealmService
   ) {}
 
   async getLore(args: Prisma.LoreFindUniqueArgs): Promise<Lore | null> {
     return this.prisma.lore.findUnique(args);
+  }
+
+  calculateLoreSlug(args: {baseSlug: string; slugDiscriminator: number}) {
+    return this.slugService.calculateSlug(
+      args.baseSlug,
+      args.slugDiscriminator
+    );
   }
 
   async getLoreUrl(where: Prisma.LoreWhereUniqueInput): Promise<string> {
@@ -28,7 +46,8 @@ export class LoreService {
       select: {
         author: true,
         realm: true,
-        slug: true
+        baseSlug: true,
+        slugDiscriminator: true
       }
     });
 
@@ -38,7 +57,11 @@ export class LoreService {
       });
     }
 
-    return `/@${lore.author.username}/r/${lore.realm.slug}/l/${lore.slug}`;
+    const authorSlug = this.userService.calculateUserSlug(lore.author);
+    const realmSlug = this.calculateLoreSlug(lore);
+    const loreSlug = this.realmService.calculateRealmSlug(lore.realm);
+
+    return `/${authorSlug}/r/${realmSlug}/l/${loreSlug}`;
   }
 
   async getOrGenerateLoreShortcodeUrl(
@@ -62,26 +85,46 @@ export class LoreService {
         return this.shortcodeService.getShortcodeUrl({id: lore.shortcodeId});
       }
 
-      const updatedLore = await this.updateLore({
-        where,
+      const shortcode = await this.shortcodeService.createShortcode({
         data: {
-          shortcode: {
-            create: {
-              id: await this.shortcodeService.generateUniqueShortcode(),
-              type: ShortcodeType.Lore
-            }
+          type: ShortcodeType.Lore,
+          lore: {
+            connect: where
           }
-        },
-        select: {
-          shortcodeId: true
         }
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      return this.shortcodeService.getShortcodeUrl({
-        id: updatedLore.shortcodeId!
-      });
+      return this.shortcodeService.getShortcodeUrl({id: shortcode.id});
     });
+  }
+
+  async findLowestAvailableDiscriminator({
+    ignoreId,
+    baseSlug,
+    realmId
+  }: {
+    ignoreId?: string;
+    baseSlug: string;
+    realmId: string;
+  }): Promise<number> {
+    const loresWithSameBaseSlug = await this.getLores({
+      where: {
+        id: ignoreId ? {not: ignoreId} : undefined,
+        realmId,
+        baseSlug
+      },
+      select: {
+        slugDiscriminator: true
+      },
+      orderBy: {
+        slugDiscriminator: "asc"
+      }
+    });
+
+    return this.slugService.findLowestAvailableDiscriminator(
+      loresWithSameBaseSlug,
+      {preSorted: true}
+    );
   }
 
   async getLores(args: Prisma.LoreFindManyArgs): Promise<Lore[]> {
@@ -89,37 +132,73 @@ export class LoreService {
   }
 
   async createLore(args: LoreCreateArgs): Promise<Lore> {
-    const slug = this.slugService.slugify(args.data.title);
+    return this.prisma.$transaction(async (prisma) => {
+      const baseSlug = this.slugService.slugify(args.data.title);
 
-    return this.prisma.lore.create({
-      ...args,
-      data: {
-        ...args.data,
-        slug,
-        content: {
-          create: {type: ContentType.Lore}
+      const lore = await this.prisma.lore.create({
+        ...args,
+        data: {
+          ...args.data,
+          baseSlug,
+          contentTarget: {
+            create: {type: ContentTargetType.Lore}
+          }
+        }
+      });
+
+      await prisma.lore.update({
+        where: {
+          id: lore.id
         },
-        contents: "{}"
-      }
+        data: {
+          slugDiscriminator: await this.findLowestAvailableDiscriminator({
+            ignoreId: lore.id,
+            baseSlug,
+            realmId: lore.realmId
+          })
+        }
+      });
+
+      return lore;
     });
   }
 
   async updateLore(args: Prisma.LoreUpdateArgs): Promise<Lore> {
-    const newTitle: string | undefined =
-      args.data.title &&
-      (typeof args.data.title === "string"
-        ? args.data.title
-        : args.data.title.set);
+    return this.prisma.$transaction(async (prisma) => {
+      const lore = await prisma.lore.findUnique({
+        where: args.where
+      });
 
-    const slug: string | undefined =
-      newTitle && this.slugService.slugify(newTitle);
-
-    return this.prisma.lore.update({
-      ...args,
-      data: {
-        ...args.data,
-        slug
+      if (!lore) {
+        throw new GraphQLError("Lore not found", {
+          extensions: {code: "NOT_FOUND"}
+        });
       }
+
+      const isSlugChanging = args.data.title && args.data.title !== lore.title;
+
+      const baseSlug: string | undefined = isSlugChanging
+        ? this.slugService.slugify(
+            stringOrSetObjectToString(args.data.title as string | {set: string})
+          )
+        : undefined;
+
+      const slugDiscriminator: number | undefined = isSlugChanging
+        ? await this.findLowestAvailableDiscriminator({
+            ignoreId: lore.id,
+            baseSlug: baseSlug as string,
+            realmId: lore.realmId
+          })
+        : undefined;
+
+      return prisma.lore.update({
+        ...args,
+        data: {
+          ...args.data,
+          baseSlug,
+          slugDiscriminator
+        }
+      });
     });
   }
 

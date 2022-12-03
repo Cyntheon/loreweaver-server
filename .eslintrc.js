@@ -31,6 +31,7 @@ module.exports = {
     "@typescript-eslint/no-unsafe-member-access": "off",
     "@typescript-eslint/no-unsafe-return": "off",
     "@typescript-eslint/no-useless-constructor": "off",
+    "@typescript-eslint/ban-ts-comment": "off",
 
     "import/prefer-default-export": "off",
     "import/no-cycle": "off",

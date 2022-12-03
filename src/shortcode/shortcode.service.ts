@@ -1,7 +1,14 @@
 import {Injectable} from "@nestjs/common";
 import {Prisma, Shortcode} from "@prisma/client";
-import {GraphQLError} from "graphql/error";
+import {Override, PickPartial} from "../@types";
 import {PrismaService} from "../prisma/prisma.service";
+
+type ShortcodeCreateArgs = Override<
+  Prisma.ShortcodeCreateArgs,
+  {
+    data: PickPartial<Prisma.ShortcodeCreateInput, "id">;
+  }
+>;
 
 @Injectable()
 export class ShortcodeService {
@@ -45,26 +52,11 @@ export class ShortcodeService {
     return this.prisma.shortcode.findUnique(args);
   }
 
-  async getShortcodeUrl(
-    where: Prisma.ShortcodeWhereUniqueInput
-  ): Promise<string> {
-    const shortcode = await this.prisma.shortcode.findUnique({
-      where,
-      select: {
-        id: true
-      }
-    });
-
-    if (!shortcode) {
-      throw new GraphQLError("Shortcode not found", {
-        extensions: {code: "NOT_FOUND"}
-      });
-    }
-
+  getShortcodeUrl(shortcode: {id: string}): string {
     return `/s/${shortcode.id}`;
   }
 
-  async createShortcode(args: Prisma.ShortcodeCreateArgs): Promise<Shortcode> {
+  async createShortcode(args: ShortcodeCreateArgs): Promise<Shortcode> {
     return this.prisma.shortcode.create({
       ...args,
       data: {

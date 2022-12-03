@@ -22,6 +22,7 @@ export class ShortcodeResolver {
   async createShortcode(
     @Args() args: CreateOneShortcodeArgs
   ): Promise<Shortcode> {
+    // @ts-ignore
     return this.shortcodes.createShortcode(args);
   }
 
@@ -29,6 +30,7 @@ export class ShortcodeResolver {
   async updateShortcode(
     @Args() args: UpdateOneShortcodeArgs
   ): Promise<Shortcode> {
+    // @ts-ignore
     return this.shortcodes.updateShortcode(args);
   }
 
