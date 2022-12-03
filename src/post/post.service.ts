@@ -37,7 +37,7 @@ export class PostService {
     return `@${post.author.username}/p/${post.shortcodeId}`;
   }
 
-  async getPosts(args: Prisma.PostFindManyArgs): Promise<Post[]> {
+  async getManyPosts(args: Prisma.PostFindManyArgs): Promise<Post[]> {
     return this.prisma.post.findMany(args);
   }
 

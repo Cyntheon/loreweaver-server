@@ -36,7 +36,7 @@ export class UserService {
     return where.id || (await this.getUser({where}))?.id || null;
   }
 
-  async getUsers(args: Prisma.UserFindManyArgs): Promise<User[]> {
+  async getManyUsers(args: Prisma.UserFindManyArgs): Promise<User[]> {
     return this.prisma.user.findMany(args);
   }
 

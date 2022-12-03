@@ -3,10 +3,10 @@ import {SlugService} from "./slug.service";
 
 @Resolver()
 export class SlugResolver {
-  constructor(private slug: SlugService) {}
+  constructor(private slugService: SlugService) {}
 
   @Query(() => String, {nullable: false})
   slugify(@Args("text") text: string): string {
-    return this.slug.slugify(text);
+    return this.slugService.slugify(text);
   }
 }

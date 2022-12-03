@@ -63,7 +63,7 @@ model FollowTarget {
   /// @FieldType("Scalars.GraphQLUUID")
   id         String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   type       FollowTargetType
-  followedBy Follow[]         @relation("Follow_Followee")
+  followedBy Follow[]         @relation("Follow_FollowTarget")
   user       User?            @relation("User_FollowTarget")
   realm      Realm?           @relation("Realm_FollowTarget")
   collection Collection?      @relation("Collection_FollowTarget")
@@ -86,7 +86,7 @@ model User {
   /// @FieldType("Scalars.GraphQLUUID")
   followTargetId String       @unique @db.Uuid
   profile        UserProfile? @relation("UserProfile_User")
-  following      Follow[]     @relation("Follow_Follower")
+  following      Follow[]     @relation("Follow_User")
   realms         Realm[]      @relation("Realm_Author")
   lores          Lore[]       @relation("Lore_Author")
   posts          Post[]       @relation("Post_Author")
@@ -145,22 +145,22 @@ model UserProfile {
 model Follow {
   /// @HideField({match: "Follow@(Create|Update)*Input"})
   /// @FieldType("Scalars.GraphQLUUID")
-  id         String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id             String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   /// @HideField({match: "Follow@(Create|Update)*Input"})
-  followedAt DateTime     @default(now())
-  follower   User         @relation("Follow_Follower", fields: [followerId], references: [id])
+  followedAt     DateTime     @default(now())
+  user           User         @relation("Follow_User", fields: [userId], references: [id])
   /// @FieldType("Scalars.GraphQLUUID")
-  followerId String       @db.Uuid
-  followee   FollowTarget @relation("Follow_Followee", fields: [followeeId], references: [id])
+  userId         String       @db.Uuid
+  followTarget   FollowTarget @relation("Follow_FollowTarget", fields: [followTargetId], references: [id])
   /// @FieldType("Scalars.GraphQLUUID")
-  followeeId String       @db.Uuid
-  isRequest  Boolean      @default(false)
+  followTargetId String       @db.Uuid
+  isRequest      Boolean      @default(false)
 
-  @@unique([followerId, followeeId])
-  @@index([followerId])
-  @@index([followeeId])
-  @@index([followerId, isRequest])
-  @@index([followeeId, isRequest])
+  @@unique([userId, followTargetId])
+  @@index([userId])
+  @@index([followTargetId])
+  @@index([userId, isRequest])
+  @@index([followTargetId, isRequest])
 }
 
 model Like {

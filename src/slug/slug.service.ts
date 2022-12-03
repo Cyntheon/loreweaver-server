@@ -13,7 +13,13 @@ export class SlugService {
     });
   }
 
-  calculateSlug(baseSlug: string, discriminator = 0): string {
+  calculateSlug({
+    baseSlug,
+    discriminator = 0
+  }: {
+    baseSlug: string;
+    discriminator?: number;
+  }): string {
     return `${baseSlug}${discriminator > 0 ? `.${discriminator}` : ""}`;
   }
 

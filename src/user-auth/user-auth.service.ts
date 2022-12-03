@@ -25,7 +25,9 @@ export class UserAuthService {
     return this.prisma.userAuth.findUnique(args);
   }
 
-  async getUserAuths(args: Prisma.UserAuthFindManyArgs): Promise<UserAuth[]> {
+  async getManyUserAuths(
+    args: Prisma.UserAuthFindManyArgs
+  ): Promise<UserAuth[]> {
     return this.prisma.userAuth.findMany(args);
   }
 

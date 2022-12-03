@@ -11,10 +11,10 @@ import {UseGuards} from "@nestjs/common";
 import {
   Args,
   Mutation,
+  Parent,
   Query,
   ResolveField,
-  Resolver,
-  Root
+  Resolver
 } from "@nestjs/graphql";
 import {LoreService} from "../lore/lore.service";
 import {RealmService} from "../realm/realm.service";
@@ -46,8 +46,8 @@ export class UserResolver {
   }
 
   @Query(() => [User], {name: "users", nullable: false})
-  async getUsers(@Args() args: FindManyUserArgs): Promise<User[]> {
-    return this.userService.getUsers(args);
+  async getManyUsers(@Args() args: FindManyUserArgs): Promise<User[]> {
+    return this.userService.getManyUsers(args);
   }
 
   @Query(() => Boolean, {name: "usernameTaken", nullable: false})
@@ -75,20 +75,20 @@ export class UserResolver {
     return this.userService.deleteUser(args);
   }
 
-  @ResolveField(() => UserProfile, {nullable: false})
-  async profile(@Root() user: User): Promise<UserProfile> {
+  @ResolveField(() => UserProfile, {name: "profile", nullable: false})
+  async getUserProfile(@Parent() user: User): Promise<UserProfile> {
     return (await this.userProfileService.getUserProfile({
       where: {userId: user.id}
     })) as UserProfile;
   }
 
   @ResolveField(() => [Realm], {name: "realms", nullable: false})
-  async getRealms(@Root() author: User): Promise<Realm[]> {
-    return this.realmService.getRealms({where: {authorId: author.id}});
+  async getAuthoredRealms(@Parent() author: User): Promise<Realm[]> {
+    return this.realmService.getManyRealms({where: {authorId: author.id}});
   }
 
   @ResolveField(() => [Lore], {name: "lores", nullable: false})
-  async getLores(@Root() author: User): Promise<Lore[]> {
-    return this.loreService.getLores({where: {authorId: author.id}});
+  async getAuthoredLores(@Parent() author: User): Promise<Lore[]> {
+    return this.loreService.getManyLores({where: {authorId: author.id}});
   }
 }

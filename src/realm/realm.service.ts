@@ -8,6 +8,7 @@ import {PrismaService} from "../prisma/prisma.service";
 import {ShortcodeService} from "../shortcode/shortcode.service";
 import {SlugService} from "../slug/slug.service";
 import {UserService} from "../user/user.service";
+import {stringOrSetObjectToString} from "../util/stringOrSetObjectToString";
 
 type RealmCreateArgs = Override<
   Prisma.RealmCreateArgs,
@@ -114,7 +115,7 @@ export class RealmService {
     baseSlug: string;
     authorId: string;
   }): Promise<number> {
-    const realmsWithSameBaseSlug = await this.getRealms({
+    const realmsWithSameBaseSlug = await this.getManyRealms({
       where: {
         id: ignoreId ? {not: ignoreId} : undefined,
         authorId,
@@ -134,7 +135,7 @@ export class RealmService {
     );
   }
 
-  async getRealms(args: Prisma.RealmFindManyArgs): Promise<Realm[]> {
+  async getManyRealms(args: Prisma.RealmFindManyArgs): Promise<Realm[]> {
     return this.prisma.realm.findMany(args);
   }
 
@@ -185,38 +186,49 @@ export class RealmService {
 
   async updateRealm(args: Prisma.RealmUpdateArgs): Promise<Realm> {
     return this.prisma.$transaction(async (prisma) => {
-      const realm = await prisma.realm.update(args);
+      const realm = await prisma.realm.findUnique({
+        where: args.where
+      });
 
-      if (args.data.title) {
-        const newTitle =
-          typeof args.data.title === "string"
-            ? args.data.title
-            : args.data.title.set;
-
-        if (newTitle) {
-          const baseSlug = this.slugService.slugify(newTitle);
-
-          await prisma.realm.update({
-            where: {
-              id: realm.id
-            },
-            data: {
-              baseSlug
-            }
-          });
-
-          await this.loreService.updateLore({
-            where: {
-              id: realm.representationLoreId as string
-            },
-            data: {
-              title: newTitle
-            }
-          });
-        }
+      if (!realm) {
+        throw new GraphQLError("Realm not found", {
+          extensions: {code: "NOT_FOUND"}
+        });
       }
 
-      return realm;
+      const newTitle = stringOrSetObjectToString(
+        args.data.title as string | {set: string}
+      );
+      const newSlug = this.slugService.slugify(newTitle);
+      const isSlugChanging = args.data.title && newSlug !== realm.baseSlug;
+      const getSlugDiscriminator = async () =>
+        this.findLowestAvailableDiscriminator({
+          ignoreId: realm.id,
+          baseSlug: newSlug,
+          authorId: realm.authorId
+        });
+
+      if (isSlugChanging && realm.representationLoreId) {
+        await this.loreService.updateLore({
+          where: {
+            id: realm.representationLoreId
+          },
+          data: {
+            title: newTitle
+          }
+        });
+      }
+
+      return prisma.realm.update({
+        ...args,
+        data: {
+          ...args.data,
+          baseSlug: isSlugChanging ? newSlug : undefined,
+          slugDiscriminator: isSlugChanging
+            ? await getSlugDiscriminator()
+            : undefined
+        }
+      });
     });
   }
 

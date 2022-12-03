@@ -11,10 +11,10 @@ import {User} from "@generated/user";
 import {
   Args,
   Mutation,
+  Parent,
   Query,
   ResolveField,
-  Resolver,
-  Root
+  Resolver
 } from "@nestjs/graphql";
 import {RealmService} from "../realm/realm.service";
 import {SlugService} from "../slug/slug.service";
@@ -37,7 +37,7 @@ export class LoreResolver {
 
   @Query(() => [Lore], {name: "lores", nullable: false})
   async getLores(@Args() args: FindManyLoreArgs): Promise<Lore[]> {
-    return this.loreService.getLores(args);
+    return this.loreService.getManyLores(args);
   }
 
   @Mutation(() => Lore, {nullable: false})
@@ -58,7 +58,7 @@ export class LoreResolver {
   }
 
   @ResolveField(() => String, {name: "slug", nullable: false})
-  async getSlug(@Root() lore: Lore): Promise<string> {
+  async getSlug(@Parent() lore: Lore): Promise<string> {
     return this.slugService.calculateSlug(
       lore.baseSlug,
       lore.slugDiscriminator
@@ -66,19 +66,19 @@ export class LoreResolver {
   }
 
   @ResolveField(() => String, {name: "url", nullable: false})
-  async getUrl(@Root() lore: Lore): Promise<string> {
+  async getUrl(@Parent() lore: Lore): Promise<string> {
     return this.loreService.getLoreUrl({id: lore.id});
   }
 
   @ResolveField(() => User, {name: "author", nullable: false})
-  async getAuthor(@Root() lore: Lore): Promise<User> {
+  async getAuthor(@Parent() lore: Lore): Promise<User> {
     return (await this.userService.getUser({
       where: {id: lore.authorId}
     })) as User;
   }
 
   @ResolveField(() => Realm, {name: "realm", nullable: false})
-  async getRealm(@Root() lore: Lore): Promise<Realm> {
+  async getRealm(@Parent() lore: Lore): Promise<Realm> {
     return (await this.realmService.getRealm({
       where: {id: lore.realmId}
     })) as Realm;

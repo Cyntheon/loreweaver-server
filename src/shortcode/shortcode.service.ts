@@ -16,8 +16,8 @@ export class ShortcodeService {
 
   private generateShortcodeString() {
     const validCharacters =
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    const length = 7;
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    const length = 6;
 
     let shortcodeString = "";
     // eslint-disable-next-line no-plusplus
