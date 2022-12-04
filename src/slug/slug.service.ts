@@ -20,7 +20,7 @@ export class SlugService {
     baseSlug: string;
     discriminator?: number;
   }): string {
-    return `${baseSlug}${discriminator > 0 ? `.${discriminator}` : ""}`;
+    return `${baseSlug}${discriminator > 0 ? `_${discriminator}` : ""}`;
   }
 
   findLowestAvailableDiscriminator(
@@ -49,5 +49,9 @@ export class SlugService {
     }
 
     return orderedModels[orderedModels.length - 1].slugDiscriminator + 1;
+  }
+
+  generatePlaceholderDiscriminator() {
+    return Math.floor(Math.random() * -Number.MAX_VALUE);
   }
 }

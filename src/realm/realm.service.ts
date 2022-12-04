@@ -1,8 +1,9 @@
 import {FollowTargetType, ShortcodeType} from "@generated/prisma";
 import {Injectable} from "@nestjs/common";
-import {Prisma, Realm} from "@prisma/client";
+import {Prisma, Realm, User} from "@prisma/client";
 import {GraphQLError} from "graphql/error";
 import {Override, PickPartial} from "../@types";
+import {FollowTargetService} from "../follow-target/follow-target.service";
 import {LoreService} from "../lore/lore.service";
 import {PrismaService} from "../prisma/prisma.service";
 import {ShortcodeService} from "../shortcode/shortcode.service";
@@ -26,6 +27,7 @@ export class RealmService {
     private prisma: PrismaService,
     private slugService: SlugService,
     private shortcodeService: ShortcodeService,
+    private followTargetService: FollowTargetService,
     private userService: UserService,
     private loreService: LoreService
   ) {}
@@ -34,22 +36,22 @@ export class RealmService {
     return this.prisma.realm.findUnique(args);
   }
 
-  calculateRealmSlug(args: {baseSlug: string; slugDiscriminator: number}) {
-    return this.slugService.calculateSlug(
-      args.baseSlug,
-      args.slugDiscriminator
-    );
+  calculateRealmSlug(args: {
+    baseSlug: string;
+    slugDiscriminator: number;
+  }): string {
+    return this.slugService.calculateSlug(args);
   }
 
   async getRealmUrl(where: Prisma.RealmWhereUniqueInput): Promise<string> {
-    const realm = await this.prisma.realm.findUnique({
+    const realm = (await this.prisma.realm.findUnique({
       where,
       select: {
         author: true,
         baseSlug: true,
         slugDiscriminator: true
       }
-    });
+    })) as {author: User} & Realm;
 
     if (!realm) {
       throw new GraphQLError("Realm not found", {
@@ -148,9 +150,16 @@ export class RealmService {
         data: {
           ...args.data,
           baseSlug,
-          followTarget: {
-            create: {
-              type: FollowTargetType.Realm
+          slugDiscriminator:
+        }
+      });
+
+      await this.followTargetService.createFollowTarget({
+        data: {
+          type: FollowTargetType.Realm,
+          realm: {
+            connect: {
+              id: realm.id
             }
           }
         }
