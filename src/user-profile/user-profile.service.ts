@@ -1,16 +1,32 @@
 import {Injectable} from "@nestjs/common";
-import {Prisma} from "@prisma/client";
+import {Prisma, UserProfile} from "@prisma/client";
 import {PrismaService} from "../prisma/prisma.service";
 
 @Injectable()
 export class UserProfileService {
   constructor(private prisma: PrismaService) {}
 
-  public async getUserProfile(args: Prisma.UserProfileFindUniqueArgs) {
+  async getUserProfile(
+    args: Prisma.UserProfileFindUniqueArgs
+  ): Promise<UserProfile | null> {
     return this.prisma.userProfile.findUnique(args);
   }
 
-  public async updateUserProfile(args: Prisma.UserProfileUpdateArgs) {
+  async createUserProfile(
+    args: Prisma.UserProfileCreateArgs
+  ): Promise<UserProfile> {
+    return this.prisma.userProfile.create(args);
+  }
+
+  async updateUserProfile(
+    args: Prisma.UserProfileUpdateArgs
+  ): Promise<UserProfile> {
     return this.prisma.userProfile.update(args);
+  }
+
+  async deleteUserProfile(
+    args: Prisma.UserProfileDeleteArgs
+  ): Promise<UserProfile> {
+    return this.prisma.userProfile.delete(args);
   }
 }

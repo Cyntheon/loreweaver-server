@@ -9,15 +9,14 @@ import {PrismaService} from "../prisma/prisma.service";
 import {ShortcodeService} from "../shortcode/shortcode.service";
 import {SlugService} from "../slug/slug.service";
 import {UserService} from "../user/user.service";
-import {stringOrSetObjectToString} from "../util/stringOrSetObjectToString";
+import {unpackStringFromSetObject} from "../util/unpack-string-from-set-object";
+import {RealmSlugService} from "./realm-slug.service";
+import {RepresentationLoreService} from "./representation-lore.service";
 
 type RealmCreateArgs = Override<
   Prisma.RealmCreateArgs,
   {
-    data: PickPartial<
-      Prisma.RealmCreateInput,
-      "baseSlug" | "slugDiscriminator" | "followTarget"
-    >;
+    data: PickPartial<Prisma.RealmCreateInput, "slug" | "followTarget">;
   }
 >;
 
@@ -28,113 +27,14 @@ export class RealmService {
     private slugService: SlugService,
     private shortcodeService: ShortcodeService,
     private followTargetService: FollowTargetService,
+    private realmSlugService: RealmSlugService,
+    private representationLoreService: RepresentationLoreService,
     private userService: UserService,
     private loreService: LoreService
   ) {}
 
   async getRealm(args: Prisma.RealmFindUniqueArgs): Promise<Realm | null> {
     return this.prisma.realm.findUnique(args);
-  }
-
-  calculateRealmSlug(args: {
-    baseSlug: string;
-    slugDiscriminator: number;
-  }): string {
-    return this.slugService.calculateSlug(args);
-  }
-
-  async getRealmUrl(where: Prisma.RealmWhereUniqueInput): Promise<string> {
-    const realm = (await this.prisma.realm.findUnique({
-      where,
-      select: {
-        author: true,
-        baseSlug: true,
-        slugDiscriminator: true
-      }
-    })) as {author: User} & Realm;
-
-    if (!realm) {
-      throw new GraphQLError("Realm not found", {
-        extensions: {code: "NOT_FOUND"}
-      });
-    }
-
-    const userSlug = this.userService.calculateUserSlug(realm.author);
-    const realmSlug = this.calculateRealmSlug(realm);
-
-    return `/${userSlug}/r/${realmSlug}`;
-  }
-
-  async getOrGenerateRealmShortcodeUrl(
-    where: Prisma.RealmWhereUniqueInput
-  ): Promise<string> {
-    return this.prisma.$transaction(async (prisma) => {
-      const realm = await prisma.realm.findUnique({
-        where,
-        select: {
-          shortcodeId: true
-        }
-      });
-
-      if (!realm) {
-        throw new GraphQLError("Realm not found", {
-          extensions: {code: "NOT_FOUND"}
-        });
-      }
-
-      if (realm.shortcodeId) {
-        return this.shortcodeService.getShortcodeUrl({id: realm.shortcodeId});
-      }
-
-      const updatedRealm = await this.updateRealm({
-        where,
-        data: {
-          shortcode: {
-            create: {
-              id: await this.shortcodeService.generateUniqueShortcode(),
-              type: ShortcodeType.Realm
-            }
-          }
-        },
-        select: {
-          shortcodeId: true
-        }
-      });
-
-      return this.shortcodeService.getShortcodeUrl({
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        id: updatedRealm.shortcodeId!
-      });
-    });
-  }
-
-  async findLowestAvailableDiscriminator({
-    ignoreId,
-    baseSlug,
-    authorId
-  }: {
-    ignoreId?: string;
-    baseSlug: string;
-    authorId: string;
-  }): Promise<number> {
-    const realmsWithSameBaseSlug = await this.getManyRealms({
-      where: {
-        id: ignoreId ? {not: ignoreId} : undefined,
-        authorId,
-        baseSlug
-      },
-      select: {
-        slugDiscriminator: true
-      },
-      orderBy: {
-        slugDiscriminator: "asc"
-      }
-    });
-
-    return this.slugService.findLowestAvailableDiscriminator(
-      realmsWithSameBaseSlug,
-      {preSorted: true}
-    );
   }
 
   async getManyRealms(args: Prisma.RealmFindManyArgs): Promise<Realm[]> {
@@ -145,41 +45,46 @@ export class RealmService {
     return this.prisma.$transaction(async (prisma) => {
       const baseSlug = this.slugService.slugify(args.data.title);
 
+      const followTarget = await this.followTargetService.createFollowTarget({
+        data: {
+          type: FollowTargetType.Realm
+        }
+      });
+
+      const slug = await this.realmSlugService.createRealmSlug({
+        data: {
+          author: args.data.author,
+          baseSlug: this.slugService.slugify(args.data.title)
+        }
+      });
+
+      const representationLore =
+        await this.representationLoreService.createRepresentationLore({
+          data: {}
+        });
+
       const realm = await prisma.realm.create({
         ...args,
         data: {
           ...args.data,
-          baseSlug,
-          slugDiscriminator:
-        }
-      });
-
-      await this.followTargetService.createFollowTarget({
-        data: {
-          type: FollowTargetType.Realm,
-          realm: {
-            connect: {
-              id: realm.id
-            }
-          }
-        }
-      });
-
-      await prisma.realm.update({
-        where: {id: realm.id},
-        data: {
-          slugDiscriminator: await this.findLowestAvailableDiscriminator({
-            ignoreId: realm.id,
-            baseSlug,
-            authorId: realm.authorId
-          })
+          followTarget: {connect: {id: followTarget.id}},
+          slug: {connect: {id: slug.id}},
+          representationLore: {connect: {id: representationLore.id}}
         }
       });
 
       await this.loreService.createLore({
         data: {
-          realm: {connect: {id: realm.id}},
-          author: {connect: {id: realm.authorId}},
+          realm: {
+            connect: {
+              id: realm.id
+            }
+          },
+          author: {
+            connect: {
+              id: realm.authorId
+            }
+          },
           title: realm.title,
           representsRealm: {
             connect: {
@@ -205,7 +110,7 @@ export class RealmService {
         });
       }
 
-      const newTitle = stringOrSetObjectToString(
+      const newTitle = unpackStringFromSetObject(
         args.data.title as string | {set: string}
       );
       const newSlug = this.slugService.slugify(newTitle);

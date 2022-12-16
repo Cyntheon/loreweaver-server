@@ -2,7 +2,9 @@ import {UserAuthType} from "@generated/prisma";
 import {Injectable} from "@nestjs/common";
 import {JwtService} from "@nestjs/jwt";
 import {Prisma, User, UserAuth} from "@prisma/client";
+import {PrismaCreateArgs} from "../@types";
 import {PrismaService} from "../prisma/prisma.service";
+import {IdService} from "../id/id.service";
 import {
   LoginCredentialsEmailPassword,
   LoginCredentialsUsernamePassword
@@ -16,7 +18,8 @@ export class UserAuthService {
   constructor(
     private prisma: PrismaService,
     private argon: ArgonService,
-    private jwtService: JwtService
+    private jwtService: JwtService,
+    private uuidService: IdService
   ) {}
 
   async getUserAuth(
@@ -32,7 +35,7 @@ export class UserAuthService {
   }
 
   async createUserAuth(args: Prisma.UserAuthCreateArgs): Promise<UserAuth> {
-    return this.prisma.userAuth.create(args);
+    return this.prisma.userAuth.create(this.uuidService.injectIdIntoArgs(args));
   }
 
   async updateUserAuth(args: Prisma.UserAuthUpdateArgs): Promise<UserAuth> {

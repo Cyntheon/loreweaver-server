@@ -1,3 +1,11 @@
+// Model sections (separated by blank lines)
+// 1. "meta" fields (id, createdAt, updatedAt, etc.)
+// 2. non-relational columns/fields
+// 3. 1-1 relations
+// 4. n-1 relations (model's parents)
+// 5. 1-n relations (model's children)
+// 6. n-n relations
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -20,10 +28,11 @@ generator nestgraphql {
 model AuditLogEntry {
   /// @HideField({match: "AuditLogEntry@(Create|Update)*Input"})
   /// @FieldType("Scalars.GraphQLUUID")
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id        String   @id @db.Uuid
   /// @HideField({match: "AuditLogEntry@(Create|Update)*Input"})
   createdAt DateTime @default(now())
-  data      Json
+
+  data Json
 }
 
 enum ShortcodeType {
@@ -38,18 +47,19 @@ enum ShortcodeType {
 
 model Shortcode {
   /// @HideField({match: "Shortcode@(Create|Update)*Input"})
-  id         String        @id @db.Citext
+  id        String   @id @db.Citext
   /// @HideField({match: "Shortcode@(Create|Update)*Input"})
-  createdAt  DateTime      @default(now())
-  /// @HideField({match: "ShortcodeUpdate*Input"})
-  type       ShortcodeType
-  data       Json?
-  user       User?         @relation("User_Shortcode")
-  realm      Realm?        @relation("Realm_Shortcode")
-  lore       Lore?         @relation("Lore_Shortcode")
-  post       Post?         @relation("Post_Shortcode")
-  comment    Comment?      @relation("Comment_Shortcode")
-  collection Collection?   @relation("Collection_Shortcode")
+  createdAt DateTime @default(now())
+
+  type ShortcodeType
+  data Json?
+
+  user       User?       @relation("User_Shortcode")
+  realm      Realm?      @relation("Realm_Shortcode")
+  lore       Lore?       @relation("Lore_Shortcode")
+  post       Post?       @relation("Post_Shortcode")
+  comment    Comment?    @relation("Comment_Shortcode")
+  collection Collection? @relation("Collection_Shortcode")
 }
 
 enum FollowTargetType {
@@ -61,38 +71,47 @@ enum FollowTargetType {
 model FollowTarget {
   /// @HideField({match: "FollowTarget@(Create|Update)*Input"})
   /// @FieldType("Scalars.GraphQLUUID")
-  id         String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  type       FollowTargetType
-  followedBy Follow[]         @relation("Follow_FollowTarget")
-  user       User?            @relation("User_FollowTarget")
-  realm      Realm?           @relation("Realm_FollowTarget")
-  collection Collection?      @relation("Collection_FollowTarget")
+  id   String           @id @db.Uuid
+  type FollowTargetType
+
+  user       User?       @relation("User_FollowTarget")
+  realm      Realm?      @relation("Realm_FollowTarget")
+  collection Collection? @relation("Collection_FollowTarget")
+
+  followedBy Follow[] @relation("Follow_FollowTarget")
 }
 
 model User {
   /// @HideField({match: "User@(Create|Update)*Input"})
   /// @FieldType("Scalars.GraphQLUUID")
-  id             String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id       String   @id @db.Uuid
   /// @HideField({match: "User@(Create|Update)*Input"})
-  joinedAt       DateTime      @default(now())
-  username       String        @unique @db.Citext
-  nickname       String?
-  shortcode      Shortcode?    @relation("User_Shortcode", fields: [shortcodeId], references: [id])
-  shortcodeId    String?       @unique @db.Citext
-  /// @HideField({input: true, output: true})
-  authData       UserAuth[]
+  joinedAt DateTime @default(now())
+
+  username String @unique @db.Citext
+
   /// @HideField({match: "User@(Create|Update)*Input"})
-  followTarget   FollowTarget? @relation("User_FollowTarget", fields: [followTargetId], references: [id])
+  followTarget   FollowTarget @relation("User_FollowTarget", fields: [followTargetId], references: [id])
+  /// @HideField({match: "User@(Create|Update)*Input"})
   /// @FieldType("Scalars.GraphQLUUID")
-  followTargetId String?       @unique @db.Uuid
-  profile        UserProfile?  @relation("UserProfile_User")
-  following      Follow[]      @relation("Follow_User")
-  realms         Realm[]       @relation("Realm_Author")
-  lores          Lore[]        @relation("Lore_Author")
-  posts          Post[]        @relation("Post_Author")
-  comments       Comment[]     @relation("Comment_Author")
-  collections    Collection[]  @relation("Collection_Author")
-  likes          Like[]        @relation("Like_User")
+  followTargetId String       @unique @db.Uuid
+  shortcode      Shortcode?   @relation("User_Shortcode", fields: [shortcodeId], references: [id])
+  shortcodeId    String?      @unique @db.Citext
+  profile        UserProfile? @relation("UserProfile_User")
+
+  /// @HideField({input: true, output: true})
+  authData        UserAuth[]       @relation("UserAuth_User")
+  following       Follow[]         @relation("Follow_User")
+  realms          Realm[]          @relation("Realm_Author")
+  /// @HideField({input: true, output: true})
+  realmSlugs      RealmSlug[]      @relation("RealmSlug_Author")
+  lores           Lore[]           @relation("Lore_Author")
+  posts           Post[]           @relation("Post_Author")
+  comments        Comment[]        @relation("Comment_Author")
+  collections     Collection[]     @relation("Collection_Author")
+  /// @HideField({input: true, output: true})
+  collectionSlugs CollectionSlug[] @relation("CollectionSlug_Author")
+  likes           Like[]           @relation("Like_User")
 }
 
 enum UserAuthType {
@@ -104,16 +123,18 @@ enum UserAuthType {
 model UserAuth {
   /// @HideField({match: "UserAuth@(Create|Update)*Input"})
   /// @FieldType("Scalars.GraphQLUUID")
-  id        String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  user      User         @relation(fields: [userId], references: [id])
+  id        String   @id @db.Uuid
+  /// @HideField({match: "UserAuth@(Create|Update)*Input"})
+  createdAt DateTime @default(now())
+  /// @HideField({match: "UserAuth@(Create|Update)*Input"})
+  updatedAt DateTime @updatedAt
+
+  type UserAuthType
+  data Json
+
+  user   User   @relation("UserAuth_User", fields: [userId], references: [id])
   /// @FieldType("Scalars.GraphQLUUID")
-  userId    String       @db.Uuid
-  /// @HideField({match: "UserAuth@(Create|Update)*Input"})
-  createdAt DateTime     @default(now())
-  /// @HideField({match: "UserAuth@(Create|Update)*Input"})
-  updatedAt DateTime     @updatedAt
-  type      UserAuthType
-  data      Json
+  userId String @db.Uuid
 
   @@unique([userId, type])
   @@index([userId])
@@ -122,39 +143,43 @@ model UserAuth {
 model UserProfile {
   /// @HideField({match: "UserProfile@(Create|Update)*Input"})
   /// @FieldType("Scalars.GraphQLUUID")
-  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  /// @HideField({match: "UserProfile@(Create|Update)*Input"})
-  user      User     @relation("UserProfile_User", fields: [userId], references: [id])
-  /// @FieldType("Scalars.GraphQLUUID")
-  userId    String   @unique @db.Uuid
+  id        String   @id @db.Uuid
   /// @HideField({match: "UserProfile@(Create|Update)*Input"})
   createdAt DateTime @default(now())
   /// @HideField({match: "UserProfile@(Create|Update)*Input"})
   updatedAt DateTime @updatedAt
-  private   Boolean  @default(false)
+
+  private   Boolean @default(false)
+  nickname  String?
   bio       String?
+  pronouns  String?
   location  String?
-  website   String?
   /// @FieldType("Scalars.GraphQLURL")
   avatarUrl String?
   /// @FieldType("Scalars.GraphQLURL")
   bannerUrl String?
-  pronouns  String?
+
+  /// @HideField({match: "UserProfile@(Create|Update)*Input"})
+  user   User   @relation("UserProfile_User", fields: [userId], references: [id])
+  /// @FieldType("Scalars.GraphQLUUID")
+  userId String @unique @db.Uuid
 }
 
 model Follow {
   /// @HideField({match: "Follow@(Create|Update)*Input"})
   /// @FieldType("Scalars.GraphQLUUID")
-  id             String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id         String   @id @db.Uuid
   /// @HideField({match: "Follow@(Create|Update)*Input"})
-  followedAt     DateTime      @default(now())
-  user           User          @relation("Follow_User", fields: [userId], references: [id])
+  followedAt DateTime @default(now())
+
+  isRequest Boolean @default(false)
+
+  user           User         @relation("Follow_User", fields: [userId], references: [id])
   /// @FieldType("Scalars.GraphQLUUID")
-  userId         String        @db.Uuid
-  followTarget   FollowTarget? @relation("Follow_FollowTarget", fields: [followTargetId], references: [id])
+  userId         String       @db.Uuid
+  followTarget   FollowTarget @relation("Follow_FollowTarget", fields: [followTargetId], references: [id])
   /// @FieldType("Scalars.GraphQLUUID")
-  followTargetId String?       @db.Uuid
-  isRequest      Boolean       @default(false)
+  followTargetId String       @db.Uuid
 
   @@unique([userId, followTargetId])
   @@index([userId])
@@ -166,9 +191,10 @@ model Follow {
 model Like {
   /// @HideField({match: "Follow@(Create|Update)*Input"})
   /// @FieldType("Scalars.GraphQLUUID")
-  id              String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id      String   @id @db.Uuid
   /// @HideField({match: "Follow@(Create|Update)*Input"})
-  likedAt         DateTime      @default(now())
+  likedAt DateTime @default(now())
+
   contentTarget   ContentTarget @relation("Like_ContentTarget", fields: [contentTargetId], references: [id])
   /// @FieldType("Scalars.GraphQLUUID")
   contentTargetId String        @db.Uuid
@@ -190,94 +216,151 @@ enum ContentTargetType {
 model ContentTarget {
   /// @HideField({match: "ContentTarget@(Create|Update)*Input"})
   /// @FieldType("Scalars.GraphQLUUID")
-  id          String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id        String   @id @db.Uuid
   /// @HideField({match: "ContentTarget@(Create|Update)*Input"})
-  createdAt   DateTime          @default(now())
+  createdAt DateTime @default(now())
   /// @HideField({match: "ContentTarget@(Create|Update)*Input"})
-  updatedAt   DateTime          @updatedAt
-  type        ContentTargetType
-  lore        Lore?             @relation("Lore_ContentTarget")
-  post        Post?             @relation("Post_ContentTarget")
-  comment     Comment?          @relation("Comment_ContentTarget")
-  collections Collection[]      @relation("Collection_ContentTargetList")
-  likes       Like[]            @relation("Like_ContentTarget")
+  updatedAt DateTime @updatedAt
+
+  type ContentTargetType
+
+  lore    Lore?    @relation("Lore_ContentTarget")
+  post    Post?    @relation("Post_ContentTarget")
+  comment Comment? @relation("Comment_ContentTarget")
+
+  collections Collection[] @relation("Collection_ContentTargetList")
+  likes       Like[]       @relation("Like_ContentTarget")
+}
+
+model RealmSlug {
+  /// @HideField({match: "RealmSlug@(Create|Update)*Input"})
+  /// @FieldType("Scalars.GraphQLUUID")
+  id String @id @db.Uuid
+
+  baseSlug      String
+  discriminator Int
+
+  realm Realm? @relation("Realm_RealmSlug")
+
+  author   User   @relation("RealmSlug_Author", fields: [authorId], references: [id])
+  /// @FieldType("Scalars.GraphQLUUID")
+  authorId String @db.Uuid
+
+  @@unique([authorId, baseSlug, discriminator])
 }
 
 model Realm {
   /// @HideField({match: "Realm@(Create|Update)*Input"})
   /// @FieldType("Scalars.GraphQLUUID")
-  id                   String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id        String   @id @db.Uuid
   /// @HideField({match: "Realm@(Create|Update)*Input"})
-  createdAt            DateTime      @default(now())
+  createdAt DateTime @default(now())
   /// @HideField({match: "Realm@(Create|Update)*Input"})
-  updatedAt            DateTime      @updatedAt
-  title                String
-  /// @HideField({match: "Realm@(Create|Update)*Input"})
-  baseSlug             String        @db.Citext
-  /// @HideField({match: "Realm@(Create|Update)*Input"})
-  slugDiscriminator    Int           @default(0)
-  author               User          @relation("Realm_Author", fields: [authorId], references: [id])
-  /// @FieldType("Scalars.GraphQLUUID")
-  authorId             String        @db.Uuid
-  private              Boolean       @default(false)
-  shortcode            Shortcode?    @relation("Realm_Shortcode", fields: [shortcodeId], references: [id])
-  shortcodeId          String?       @unique @db.Citext
-  lores                Lore[]        @relation("Lore_Realm")
-  // While the realm model acts as a meta/container for its lores,
-  // the representation lore contains in-universe information about the realm,
-  // such as how it operates, its history, physics system, etc.
-  /// @HideField({match: "Realm@(Create|Update)*Input"})
-  representationLore   Lore?         @relation("Realm_RepresentationLore", fields: [representationLoreId], references: [id])
-  representationLoreId String?       @unique @db.Uuid
-  /// @HideField({match: "Realm@(Create|Update)*Input"})
-  followTarget         FollowTarget? @relation("Realm_FollowTarget", fields: [followTargetId], references: [id])
-  /// @FieldType("Scalars.GraphQLUUID")
-  followTargetId       String?       @unique @db.Uuid
+  updatedAt DateTime @updatedAt
 
-  @@unique([authorId, baseSlug, slugDiscriminator])
+  title   String
+  private Boolean @default(false)
+
+  /// @HideField({match: "Realm@(Create|Update)*Input"})
+  followTarget         FollowTarget       @relation("Realm_FollowTarget", fields: [followTargetId], references: [id])
+  /// @HideField({match: "Realm@(Create|Update)*Input"})
+  /// @FieldType("Scalars.GraphQLUUID")
+  followTargetId       String             @unique @db.Uuid
+  shortcode            Shortcode?         @relation("Realm_Shortcode", fields: [shortcodeId], references: [id])
+  shortcodeId          String?            @unique @db.Citext
+  /// @HideField({input: true, output: true})
+  slug                 RealmSlug          @relation("Realm_RealmSlug", fields: [slugId], references: [id])
+  /// @HideField({input: true, output: true})
+  /// @FieldType("Scalars.GraphQLUUID")
+  slugId               String             @unique @db.Uuid
+  /// @HideField({match: "Realm@(Create|Update)*Input"})
+  representationLore   RepresentationLore @relation("Realm_RepresentationLore", fields: [representationLoreId], references: [id])
+  /// @HideField({match: "Realm@(Create|Update)*Input"})
+  /// @FieldType("Scalars.GraphQLUUID")
+  representationLoreId String             @unique @db.Uuid
+
+  author   User   @relation("Realm_Author", fields: [authorId], references: [id])
+  /// @FieldType("Scalars.GraphQLUUID")
+  authorId String @db.Uuid
+
+  lores     Lore[]     @relation("Lore_Realm")
+  /// @HideField({input: true, output: true})
+  loreSlugs LoreSlug[] @relation("LoreSlug_Realm")
+
   @@index([authorId])
-  @@index([baseSlug])
+}
+
+// While the realm model acts as a meta/container for its lores,
+// the representation lore contains in-universe information about the realm,
+// such as how it operates, its history, physics system, etc.
+model RepresentationLore {
+  /// @HideField({match: "RepresentationLore@(Create|Update)*Input"})
+  /// @FieldType("Scalars.GraphQLUUID")
+  id String @id @db.Uuid
+
+  realm  Realm?  @relation("Realm_RepresentationLore")
+  lore   Lore?   @relation("RepresentationLore_Lore", fields: [loreId], references: [id])
+  /// @FieldType("Scalars.GraphQLUUID")
+  loreId String? @unique @db.Uuid
+}
+
+model LoreSlug {
+  /// @HideField({match: "LoreSlug@(Create|Update)*Input"})
+  /// @FieldType("Scalars.GraphQLUUID")
+  id String @id @db.Uuid
+
+  baseSlug      String
+  discriminator Int
+
+  lore Lore? @relation("Lore_LoreSlug")
+
+  realm   Realm  @relation("LoreSlug_Realm", fields: [realmId], references: [id])
+  /// @FieldType("Scalars.GraphQLUUID")
+  realmId String @db.Uuid
+
+  @@unique([realmId, baseSlug, discriminator])
 }
 
 model Lore {
   /// @HideField({match: "Lore@(Create|Update)*Input"})
   /// @FieldType("Scalars.GraphQLUUID")
-  id                String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id        String   @id @db.Uuid
   /// @HideField({match: "Lore@(Create|Update)*Input"})
-  createdAt         DateTime       @default(now())
+  createdAt DateTime @default(now())
   /// @HideField({match: "Lore@(Create|Update)*Input"})
-  updatedAt         DateTime       @updatedAt
-  /// @HideField({match: "Lore@(Create|Update)*Input"})
-  openedAt          DateTime       @default(now())
-  title             String
-  /// @HideField({match: "Lore@(Create|Update)*Input"})
-  baseSlug          String         @db.Citext
-  /// @HideField({match: "Lore@(Create|Update)*Input"})
-  slugDiscriminator Int            @default(0)
-  shortcode         Shortcode?     @relation("Lore_Shortcode", fields: [shortcodeId], references: [id])
-  shortcodeId       String?        @unique @db.Citext
-  realm             Realm          @relation("Lore_Realm", fields: [realmId], references: [id])
-  /// @FieldType("Scalars.GraphQLUUID")
-  realmId           String         @db.Uuid
-  author            User           @relation("Lore_Author", fields: [authorId], references: [id])
-  /// @FieldType("Scalars.GraphQLUUID")
-  authorId          String         @db.Uuid
-  private           Boolean        @default(false)
-  /// @FieldType("Scalars.GraphQLURL")
-  thumbnailUrl      String?
-  summary           String?
-  // The realm that this lore represents (if this lore is a realm lore)
-  representsRealm   Realm?         @relation("Realm_RepresentationLore")
-  /// @HideField({match: "Lore@(Create|Update)*Input"})
-  contentTarget     ContentTarget? @relation("Lore_ContentTarget", fields: [contentTargetId], references: [id])
-  /// @FieldType("Scalars.GraphQLUUID")
-  contentTargetId   String?        @unique @db.Uuid
-  contents          Json           @default("{}")
+  updatedAt DateTime @updatedAt
 
-  @@unique([realmId, baseSlug, slugDiscriminator])
+  title        String
+  private      Boolean @default(false)
+  /// @FieldType("Scalars.GraphQLURL")
+  thumbnailUrl String?
+  summary      String?
+  contents     Json    @default("{}")
+
+  /// @HideField({match: "Lore@(Create|Update)*Input"})
+  contentTarget   ContentTarget @relation("Lore_ContentTarget", fields: [contentTargetId], references: [id])
+  /// @HideField({match: "Lore@(Create|Update)*Input"})
+  /// @FieldType("Scalars.GraphQLUUID")
+  contentTargetId String        @unique @db.Uuid
+  shortcode       Shortcode?    @relation("Lore_Shortcode", fields: [shortcodeId], references: [id])
+  shortcodeId     String?       @unique @db.Citext
+  /// @HideField({input: true, output: true})
+  slug            LoreSlug      @relation("Lore_LoreSlug", fields: [slugId], references: [id])
+  /// @HideField({input: true, output: true})
+  slugId          String        @unique @db.Uuid
+
+  // The realm that this lore represents (if this lore is a realm lore)
+  representsRealm RepresentationLore? @relation("RepresentationLore_Lore")
+
+  author   User   @relation("Lore_Author", fields: [authorId], references: [id])
+  /// @FieldType("Scalars.GraphQLUUID")
+  authorId String @db.Uuid
+  realm    Realm  @relation("Lore_Realm", fields: [realmId], references: [id])
+  /// @FieldType("Scalars.GraphQLUUID")
+  realmId  String @db.Uuid
+
   @@index([authorId])
   @@index([realmId])
-  @@index([baseSlug])
 }
 
 enum PostType {
@@ -289,78 +372,114 @@ enum PostType {
 model Post {
   /// @HideField({match: "Post@(Create|Update)*Input"})
   /// @FieldType("Scalars.GraphQLUUID")
-  id              String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id        String   @id @db.Uuid
   /// @HideField({match: "Post@(Create|Update)*Input"})
-  createdAt       DateTime       @default(now())
+  createdAt DateTime @default(now())
   /// @HideField({match: "Post@(Create|Update)*Input"})
-  updatedAt       DateTime       @updatedAt
-  author          User           @relation("Post_Author", fields: [authorId], references: [id])
+  updatedAt DateTime @updatedAt
+
+  type     PostType
+  contents Json
+
+  /// @HideField({match: "Post@(Create|Update)*Input"})
+  contentTarget   ContentTarget @relation("Post_ContentTarget", fields: [contentTargetId], references: [id])
+  /// @HideField({match: "Post@(Create|Update)*Input"})
   /// @FieldType("Scalars.GraphQLUUID")
-  authorId        String         @db.Uuid
-  /// @HideField({match: "PostUpdate*Input"})
-  type            PostType
-  /// @HideField({match: "Post@(Create|Update)*Input"})
-  contentTarget   ContentTarget? @relation("Post_ContentTarget", fields: [contentTargetId], references: [id])
+  contentTargetId String        @unique @db.Uuid
+  shortcode       Shortcode?    @relation("Post_Shortcode", fields: [shortcodeId], references: [id])
+  shortcodeId     String?       @unique @db.Citext
+
+  author   User   @relation("Post_Author", fields: [authorId], references: [id])
   /// @FieldType("Scalars.GraphQLUUID")
-  contentTargetId String?        @unique @db.Uuid
-  contents        Json
-  children        Comment[]      @relation("Comment_ParentPost")
-  shortcode       Shortcode?     @relation("Post_Shortcode", fields: [shortcodeId], references: [id])
-  shortcodeId     String?        @unique @db.Citext
+  authorId String @db.Uuid
+
+  comments Comment[] @relation("Comment_ParentPost")
+
+  @@index([authorId])
 }
 
 model Comment {
   /// @HideField({match: "Comment@(Create|Update)*Input"})
   /// @FieldType("Scalars.GraphQLUUID")
-  id              String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id        String   @id @db.Uuid
   /// @HideField({match: "Comment@(Create|Update)*Input"})
-  createdAt       DateTime       @default(now())
+  createdAt DateTime @default(now())
   /// @HideField({match: "Comment@(Create|Update)*Input"})
-  updatedAt       DateTime       @updatedAt
-  author          User           @relation("Comment_Author", fields: [authorId], references: [id])
-  /// @FieldType("Scalars.GraphQLUUID")
-  authorId        String         @db.Uuid
-  parentPost      Post           @relation("Comment_ParentPost", fields: [parentPostId], references: [id])
-  /// @FieldType("Scalars.GraphQLUUID")
-  parentPostId    String         @db.Uuid
-  parentComment   Comment?       @relation("Comment_ParentComment", fields: [parentCommentId], references: [id])
-  /// @FieldType("Scalars.GraphQLUUID")
-  parentCommentId String?        @db.Uuid
-  children        Comment[]      @relation("Comment_ParentComment")
-  shortcode       Shortcode?     @relation("Comment_Shortcode", fields: [shortcodeId], references: [id])
-  shortcodeId     String?        @unique @db.Citext
+  updatedAt DateTime @updatedAt
+
+  contents Json
+
   /// @HideField({match: "Comment@(Create|Update)*Input"})
-  contentTarget   ContentTarget? @relation("Comment_ContentTarget", fields: [contentTargetId], references: [id])
+  contentTarget   ContentTarget @relation("Comment_ContentTarget", fields: [contentTargetId], references: [id])
+  /// @HideField({match: "Comment@(Create|Update)*Input"})
   /// @FieldType("Scalars.GraphQLUUID")
-  contentTargetId String?        @unique @db.Uuid
-  contents        Json
+  contentTargetId String        @unique @db.Uuid
+  shortcode       Shortcode?    @relation("Comment_Shortcode", fields: [shortcodeId], references: [id])
+  shortcodeId     String?       @unique @db.Citext
+
+  author          User     @relation("Comment_Author", fields: [authorId], references: [id])
+  /// @FieldType("Scalars.GraphQLUUID")
+  authorId        String   @db.Uuid
+  parentPost      Post     @relation("Comment_ParentPost", fields: [parentPostId], references: [id])
+  /// @FieldType("Scalars.GraphQLUUID")
+  parentPostId    String   @db.Uuid
+  parentComment   Comment? @relation("Comment_ParentComment", fields: [parentCommentId], references: [id])
+  /// @FieldType("Scalars.GraphQLUUID")
+  parentCommentId String?  @db.Uuid
+
+  comments Comment[] @relation("Comment_ParentComment")
+
+  @@index([authorId])
+  @@index([parentPostId])
+  @@index([parentCommentId])
+}
+
+model CollectionSlug {
+  /// @HideField({match: "CollectionSlug@(Create|Update)*Input"})
+  /// @FieldType("Scalars.GraphQLUUID")
+  id String @id @db.Uuid
+
+  baseSlug      String
+  discriminator Int
+
+  author     User        @relation("CollectionSlug_Author", fields: [authorId], references: [id])
+  /// @FieldType("Scalars.GraphQLUUID")
+  authorId   String      @db.Uuid
+  collection Collection? @relation("Collection_CollectionSlug")
+
+  @@unique([authorId, baseSlug, discriminator])
 }
 
 model Collection {
   /// @HideField({match: "Collection@(Create|Update)*Input"})
   /// @FieldType("Scalars.GraphQLUUID")
-  id                String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id        String   @id @db.Uuid
   /// @HideField({match: "Collection@(Create|Update)*Input"})
-  createdAt         DateTime        @default(now())
+  createdAt DateTime @default(now())
   /// @HideField({match: "Collection@(Create|Update)*Input"})
-  updatedAt         DateTime        @updatedAt
-  title             String
-  /// @HideField({match: "Collection@(Create|Update)*Input"})
-  baseSlug          String          @db.Citext
-  /// @HideField({match: "Collection@(Create|Update)*Input"})
-  slugDiscriminator Int             @default(0)
-  author            User            @relation("Collection_Author", fields: [authorId], references: [id])
-  /// @FieldType("Scalars.GraphQLUUID")
-  authorId          String          @db.Uuid
-  /// @HideField({match: "Collection@(Create|Update)*Input"})
-  followTarget      FollowTarget?   @relation("Collection_FollowTarget", fields: [followTargetId], references: [id])
-  /// @FieldType("Scalars.GraphQLUUID")
-  followTargetId    String?         @unique @db.Uuid
-  contentTargetList ContentTarget[] @relation("Collection_ContentTargetList")
-  shortcode         Shortcode?      @relation("Collection_Shortcode", fields: [shortcodeId], references: [id])
-  shortcodeId       String?         @unique @db.Citext
+  updatedAt DateTime @updatedAt
 
-  @@unique([authorId, baseSlug, slugDiscriminator])
+  title   String
+  private Boolean @default(false)
+
+  /// @HideField({match: "Collection@(Create|Update)*Input"})
+  followTarget   FollowTarget   @relation("Collection_FollowTarget", fields: [followTargetId], references: [id])
+  /// @HideField({match: "Collection@(Create|Update)*Input"})
+  /// @FieldType("Scalars.GraphQLUUID")
+  followTargetId String         @unique @db.Uuid
+  shortcode      Shortcode?     @relation("Collection_Shortcode", fields: [shortcodeId], references: [id])
+  shortcodeId    String?        @unique @db.Citext
+  /// @HideField({input: true, output: true})
+  slug           CollectionSlug @relation("Collection_CollectionSlug", fields: [slugId], references: [id])
+  /// @HideField({match: "Collection@(Create|Update)*Input"})
+  /// @FieldType("Scalars.GraphQLUUID")
+  slugId         String         @unique @db.Uuid
+
+  author   User   @relation("Collection_Author", fields: [authorId], references: [id])
+  /// @FieldType("Scalars.GraphQLUUID")
+  authorId String @db.Uuid
+
+  contentTargetList ContentTarget[] @relation("Collection_ContentTargetList")
+
   @@index([authorId])
-  @@index([baseSlug])
 }

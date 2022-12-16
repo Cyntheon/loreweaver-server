@@ -3,9 +3,9 @@ import argon2, {argon2d, argon2i, argon2id} from "argon2";
 
 @Injectable()
 export class ArgonService {
-  public constructor() {}
+  constructor() {}
 
-  public async hash(plain: string, salt: string) {
+  async hash(plain: string, salt: string) {
     return argon2.hash(plain, {
       type: argon2id,
       hashLength: 32,
@@ -18,17 +18,25 @@ export class ArgonService {
     });
   }
 
-  public async verify(hash: string, plain: string) {
+  splitHash(hash: string) {
     const [type, version, options, salt] = hash.split("$");
 
-    const typeStringToNumber = {
+    return {type, version, options, salt};
+  }
+
+  typeToNumber(type: string) {
+    return {
       argon2i,
       argon2d,
       argon2id
-    };
+    }[type];
+  }
+
+  async verify(hash: string, plain: string) {
+    const {type, version, options, salt} = this.splitHash(hash);
 
     return argon2.verify(hash, plain, {
-      type: typeStringToNumber[type as keyof typeof typeStringToNumber],
+      type: this.typeToNumber(type),
       version: Number.parseInt(version.split("v=")[0], 10),
       hashLength: 32,
       saltLength: 128,

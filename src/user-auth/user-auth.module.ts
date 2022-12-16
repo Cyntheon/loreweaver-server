@@ -1,7 +1,7 @@
-import {forwardRef, Global, Module} from "@nestjs/common";
+import {forwardRef, Module} from "@nestjs/common";
 import {JwtModule} from "@nestjs/jwt";
 import {PassportModule} from "@nestjs/passport";
-import {UserModule} from "../user/user.module";
+import {UserModule} from "../user";
 import {ArgonService} from "./argon.service";
 import {JwtAuthStrategy} from "./strategy/jwt-auth.strategy";
 import {LocalEmailPasswordStrategy} from "./strategy/local-email-password.strategy";
@@ -9,7 +9,6 @@ import {LocalUsernamePasswordStrategy} from "./strategy/local-username-password.
 import {UserAuthResolver} from "./user-auth.resolver";
 import {UserAuthService} from "./user-auth.service";
 
-@Global()
 @Module({
   providers: [
     UserAuthService,

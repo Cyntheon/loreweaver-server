@@ -9,10 +9,10 @@
     "esModuleInterop": true,
     "target": "es2017",
     "sourceMap": true,
-    "outDir": "./dist",
-    "baseUrl": "./",
+    "outDir": "../dist",
+    "baseUrl": "src",
     "paths": {
-      "@generated/*": ["./src/@generated/*"]
+      "@generated/*": ["@generated/*"]
     },
     "incremental": true,
     "skipLibCheck": true,
@@ -21,6 +21,7 @@
     "noImplicitAny": true,
     "strictBindCallApply": true,
     "forceConsistentCasingInFileNames": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "resolveJsonModule": true
   }
 }

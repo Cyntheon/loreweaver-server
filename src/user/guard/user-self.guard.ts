@@ -4,10 +4,10 @@ import {Reflector} from "@nestjs/core";
 import {GqlExecutionContext} from "@nestjs/graphql";
 import {UserService} from "../user.service";
 
-const USER_SELF_GUARD_PARAM_NAME = "userSelfGuard_params";
+const PARAM_WHERE_FIELD_NAME = "UserSelfGuard_Param_WhereFieldName";
 
 export const UserSelfGuardParams = (paramName: string) =>
-  SetMetadata(USER_SELF_GUARD_PARAM_NAME, paramName);
+  SetMetadata(PARAM_WHERE_FIELD_NAME, paramName);
 
 @Injectable()
 export class UserSelfGuard implements CanActivate {
@@ -20,7 +20,7 @@ export class UserSelfGuard implements CanActivate {
     const ctx = GqlExecutionContext.create(context);
 
     const paramName = this.reflector.get<string>(
-      USER_SELF_GUARD_PARAM_NAME,
+      PARAM_WHERE_FIELD_NAME,
       context.getHandler()
     ) || "where";
 

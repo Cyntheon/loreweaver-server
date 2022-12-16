@@ -1,8 +1,10 @@
 import {Module} from "@nestjs/common";
-import {CollectionService} from "./collection.service";
-import {CollectionResolver} from "./collection.resolver";
+import {CollectionResolver, CollectionService, CollectionSlugService} from ".";
+import {SlugModule} from "../slug";
 
 @Module({
-  providers: [CollectionService, CollectionResolver]
+  providers: [CollectionService, CollectionResolver],
+  imports: [SlugModule],
+  exports: [CollectionService, CollectionSlugService]
 })
 export class CollectionModule {}

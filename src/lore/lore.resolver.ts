@@ -59,7 +59,7 @@ export class LoreResolver {
 
   @ResolveField(() => String, {name: "slug", nullable: false})
   async getSlug(@Parent() lore: Lore): Promise<string> {
-    return this.slugService.calculateSlug(
+    return this.slugService.appendDiscriminatorToSlug(
       lore.baseSlug,
       lore.slugDiscriminator
     );

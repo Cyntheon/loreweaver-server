@@ -1,17 +1,17 @@
 import {Injectable} from "@nestjs/common";
 import {
-  Prisma,
   Collection,
-  User,
+  Prisma,
   Shortcode,
-  ShortcodeType
+  ShortcodeType,
+  User
 } from "@prisma/client";
 import {GraphQLError} from "graphql/error";
-import {Override, PickPartial} from "../@types";
-import {PrismaService} from "../prisma/prisma.service";
-import {ShortcodeService} from "../shortcode/shortcode.service";
-import {SlugService} from "../slug/slug.service";
-import {UserService} from "../user/user.service";
+import {GenericSlug, Override, PickPartial} from "../@types";
+import {PrismaService} from "../prisma";
+import {ShortcodeService} from "../shortcode";
+import {SlugService} from "../slug";
+import {UserService} from "../user";
 
 type CollectionCreateArgs = Override<
   Prisma.CollectionCreateArgs,
@@ -38,11 +38,8 @@ export class CollectionService {
     return this.prisma.collection.findUnique(args);
   }
 
-  calculateCollectionSlug(args: {
-    baseSlug: string;
-    slugDiscriminator: number;
-  }): string {
-    return this.slugService.calculateSlug(args);
+  calculateCollectionSlug(args: GenericSlug): string {
+    return this.slugService.appendDiscriminatorToSlug(args);
   }
 
   async getCollectionUrl(

@@ -3,11 +3,16 @@ import {Injectable} from "@nestjs/common";
 import {Prisma, User} from "@prisma/client";
 import {PrismaService} from "../prisma/prisma.service";
 import {ArgonService} from "../user-auth/argon.service";
+import {IdService} from "../id/id.service";
 import {CreateOneUserArgs} from "./input/create-one-user.args";
 
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService, private argon: ArgonService) {}
+  constructor(
+    private prisma: PrismaService,
+    private argon: ArgonService,
+    private uuid: IdService
+  ) {}
 
   async getUser(args: Prisma.UserFindUniqueArgs): Promise<User | null> {
     return this.prisma.user.findUnique(args);
@@ -59,10 +64,12 @@ export class UserService {
       // @ts-ignore
       data: {
         ...userData,
+        id: this.uuid.generateId(),
         authData: {
           createMany: {
             data: [
               {
+                id: this.uuid.generateId(),
                 type: UserAuthType.UsernamePassword,
                 data: {
                   username: data.username,
@@ -70,6 +77,7 @@ export class UserService {
                 }
               },
               {
+                id: this.uuid.generateId(),
                 type: UserAuthType.EmailPassword,
                 data: {
                   email: data.email,

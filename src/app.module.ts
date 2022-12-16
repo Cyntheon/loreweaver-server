@@ -5,25 +5,26 @@ import {GraphQLModule} from "@nestjs/graphql";
 import {ApolloServerPluginLandingPageLocalDefault} from "apollo-server-core";
 import depthLimit from "graphql-depth-limit";
 import {join} from "node:path";
-import {PrismaModule} from "./prisma/prisma.module";
-import {UserModule} from "./user/user.module";
-import {UserAuthModule} from "./user-auth/user-auth.module";
-import {AuditLogEntryModule} from "./audit-log-entry/audit-log-entry.module";
-import {FollowTargetModule} from "./follow-target/follow-target.module";
-import {UserProfileModule} from "./user-profile/user-profile.module";
-import {FollowModule} from "./follow/follow.module";
-import {ContentModule} from "./content/content.module";
-import {RealmModule} from "./realm/realm.module";
-import {LoreModule} from "./lore/lore.module";
-import {PostModule} from "./post/post.module";
-import {CollectionModule} from "./collection/collection.module";
-import {SlugModule} from "./slug/slug.module";
-import {ShortcodeModule} from "./shortcode/shortcode.module";
-import {CommentModule} from "./comment/comment.module";
+import {AuditLogEntryModule} from "./audit-log-entry";
+import {CollectionModule} from "./collection";
+import {CommentModule} from "./comment";
+import {ContentTargetModule} from "./content-target";
+import {FollowModule} from "./follow";
+import {FollowTargetModule} from "./follow-target";
+import {GlobalModule} from "./global";
+import {IdModule} from "./id";
+import {LoreModule} from "./lore";
+import {PostModule} from "./post";
+import {PrismaModule} from "./prisma";
+import {RealmModule} from "./realm";
+import {ShortcodeModule} from "./shortcode";
+import {SlugModule} from "./slug";
+import {UserModule} from "./user";
+import {UserAuthModule} from "./user-auth";
+import {UserProfileModule} from "./user-profile";
 
 @Module({
   imports: [
-    ConfigModule.forRoot({isGlobal: true}),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: join(process.cwd(), "src/schema.gql"),
@@ -36,21 +37,26 @@ import {CommentModule} from "./comment/comment.module";
       cache: "bounded",
       validationRules: [depthLimit(7)]
     }),
+    ConfigModule.forRoot({isGlobal: true}),
+    // Global Modules
+    GlobalModule,
     PrismaModule,
-    UserModule,
     UserAuthModule,
+    IdModule,
+    // Domain Modules
     AuditLogEntryModule,
-    FollowTargetModule,
-    UserProfileModule,
+    CollectionModule,
+    CommentModule,
+    ContentTargetModule,
     FollowModule,
-    ContentModule,
-    RealmModule,
+    FollowTargetModule,
     LoreModule,
     PostModule,
-    CollectionModule,
-    SlugModule,
+    RealmModule,
     ShortcodeModule,
-    CommentModule
+    SlugModule,
+    UserModule,
+    UserProfileModule
   ],
   controllers: [],
   providers: []

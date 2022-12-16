@@ -22,6 +22,7 @@ module.exports = {
     "no-console": "off",
     "no-empty-function": "off",
     "no-void": "off",
+    "no-underscore-dangle": "off",
 
     "@typescript-eslint/no-empty-function": ["error", {
       allow: ["constructors"],
@@ -35,6 +36,6 @@ module.exports = {
 
     "import/prefer-default-export": "off",
     "import/no-cycle": "off",
-    "import/no-extraneous-dependencies": ["error", {"devDependencies": ["**/*.test.ts", "**/*.spec.ts"]}],
+    "import/no-extraneous-dependencies": ["error", {"devDependencies": ["**/*.test.ts", "**/*.spec.ts", "**/*.integration-spec.ts", "**/*.e2e-spec.ts", "jest.config.*"]}],
   }
 };

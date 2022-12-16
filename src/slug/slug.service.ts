@@ -1,57 +1,28 @@
 import {Injectable} from "@nestjs/common";
 import slugify from "slugify";
+import {GenericSlug} from "../@types";
 
 @Injectable()
 export class SlugService {
   constructor() {}
 
+  replaceDotsAndUnderscoresWithDashes(text: string): string {
+    return text.replace(/[._]/g, "-");
+  }
+
+  stripSpecialCharacters(text: string): string {
+    return text.replace(/[$%&*+~.()'"!:@]/g, "");
+  }
+
   slugify(text: string): string {
-    return slugify(text, {
+    const transformedText = this.replaceDotsAndUnderscoresWithDashes(
+      this.stripSpecialCharacters(text)
+    );
+
+    return slugify(transformedText, {
       lower: true,
       strict: true,
       trim: true
     });
-  }
-
-  calculateSlug({
-    baseSlug,
-    discriminator = 0
-  }: {
-    baseSlug: string;
-    discriminator?: number;
-  }): string {
-    return `${baseSlug}${discriminator > 0 ? `_${discriminator}` : ""}`;
-  }
-
-  findLowestAvailableDiscriminator(
-    modelsWithSameBaseSlug: {slugDiscriminator: number}[],
-    {preSorted = false}
-  ) {
-    if (modelsWithSameBaseSlug.length === 0) {
-      return 0;
-    }
-
-    const orderedModels = preSorted
-      ? modelsWithSameBaseSlug
-      : modelsWithSameBaseSlug.sort(
-          (a, b) => a.slugDiscriminator - b.slugDiscriminator
-        );
-
-    // eslint-disable-next-line no-plusplus
-    for (let i = 0; i < orderedModels.length; i++) {
-      const modelWithThisDuplicateCount = orderedModels.find(
-        ({slugDiscriminator}) => slugDiscriminator === i
-      );
-
-      if (!modelWithThisDuplicateCount) {
-        return i;
-      }
-    }
-
-    return orderedModels[orderedModels.length - 1].slugDiscriminator + 1;
-  }
-
-  generatePlaceholderDiscriminator() {
-    return Math.floor(Math.random() * -Number.MAX_VALUE);
   }
 }

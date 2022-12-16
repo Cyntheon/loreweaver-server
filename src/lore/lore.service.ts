@@ -9,23 +9,16 @@ import {
   Shortcode
 } from "@prisma/client";
 import {GraphQLError} from "graphql/error";
-import {Override, PickPartial} from "../@types";
+import {Override, PickPartial, PrismaCreateArgs} from "../@types";
+import {ContentTargetService} from "../content-target/content-target.service";
 import {PrismaService} from "../prisma/prisma.service";
 import {RealmService} from "../realm/realm.service";
 import {ShortcodeService} from "../shortcode/shortcode.service";
 import {SlugService} from "../slug/slug.service";
 import {UserService} from "../user/user.service";
-import {stringOrSetObjectToString} from "../util/stringOrSetObjectToString";
+import {unpackStringFromSetObject} from "../util/unpack-string-from-set-object";
 
-type LoreCreateArgs = Override<
-  Prisma.LoreCreateArgs,
-  {
-    data: PickPartial<
-      Prisma.LoreCreateInput,
-      "baseSlug" | "slugDiscriminator" | "contentTarget"
-    >;
-  }
->;
+type LoreCreateArgs = PrismaCreateArgs<"Lore", "slug" | "contentTarget">;
 
 @Injectable()
 export class LoreService {
@@ -33,19 +26,13 @@ export class LoreService {
     private prisma: PrismaService,
     private slugService: SlugService,
     private shortcodeService: ShortcodeService,
+    private contentTargetService: ContentTargetService,
     private userService: UserService,
     private realmService: RealmService
   ) {}
 
   async getLore(args: Prisma.LoreFindUniqueArgs): Promise<Lore | null> {
     return this.prisma.lore.findUnique(args);
-  }
-
-  calculateLoreSlug(args: {
-    baseSlug: string;
-    slugDiscriminator: number;
-  }): string {
-    return this.slugService.calculateSlug(args);
   }
 
   async getLoreUrl(where: Prisma.LoreWhereUniqueInput): Promise<string> {
@@ -104,35 +91,6 @@ export class LoreService {
     });
   }
 
-  async findLowestAvailableDiscriminator({
-    ignoreId,
-    baseSlug,
-    realmId
-  }: {
-    ignoreId?: string;
-    baseSlug: string;
-    realmId: string;
-  }): Promise<number> {
-    const loresWithSameBaseSlug = await this.getManyLores({
-      where: {
-        id: ignoreId ? {not: ignoreId} : undefined,
-        realmId,
-        baseSlug
-      },
-      select: {
-        slugDiscriminator: true
-      },
-      orderBy: {
-        slugDiscriminator: "asc"
-      }
-    });
-
-    return this.slugService.findLowestAvailableDiscriminator(
-      loresWithSameBaseSlug,
-      {preSorted: true}
-    );
-  }
-
   async getManyLores(args: Prisma.LoreFindManyArgs): Promise<Lore[]> {
     return this.prisma.lore.findMany(args);
   }
@@ -141,13 +99,23 @@ export class LoreService {
     return this.prisma.$transaction(async (prisma) => {
       const baseSlug = this.slugService.slugify(args.data.title);
 
+      const contentTarget = await this.contentTargetService.createContentTarget(
+        {
+          data: {
+            type: ContentTargetType.Lore
+          }
+        }
+      );
+
+      const slug = await this.
+
       const lore = await this.prisma.lore.create({
         ...args,
         data: {
           ...args.data,
           baseSlug,
           contentTarget: {
-            create: {type: ContentTargetType.Lore}
+            connect: {id: contentTarget.id}
           }
         }
       });
@@ -181,7 +149,7 @@ export class LoreService {
         });
       }
 
-      const newTitle = stringOrSetObjectToString(
+      const newTitle = unpackStringFromSetObject(
         args.data.title as string | {set: string}
       );
       const newSlug = this.slugService.slugify(newTitle);

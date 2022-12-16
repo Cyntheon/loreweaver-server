@@ -1,11 +1,11 @@
 import {Global, Module} from "@nestjs/common";
+import {DiscriminatorService} from "./discriminator.service";
 import {SlugService} from "./slug.service";
 import {SlugResolver} from "./slug.resolver";
 
-@Global()
 @Module({
-  providers: [SlugService, SlugResolver],
+  providers: [SlugService, DiscriminatorService, SlugResolver],
   imports: [],
-  exports: [SlugService]
+  exports: [SlugService, DiscriminatorService]
 })
 export class SlugModule {}

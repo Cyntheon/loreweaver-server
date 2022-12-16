@@ -1,10 +1,17 @@
 import {Injectable} from "@nestjs/common";
 import {Prisma} from "@prisma/client";
-import {PrismaService} from "../prisma/prisma.service";
+import {PrismaCreateArgs, PrismaCreateInput} from "../@types";
+import {PrismaService} from "../prisma";
+import {IdService} from "../id";
+
+type AuditLogEntryCreateArgs = PrismaCreateArgs<
+  Prisma.AuditLogEntryCreateArgs,
+  Prisma.AuditLogEntryCreateInput
+>;
 
 @Injectable()
 export class AuditLogEntryService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private uuid: IdService) {}
 
   async getAuditLogEntry(args: Prisma.AuditLogEntryFindUniqueArgs) {
     return this.prisma.auditLogEntry.findUnique(args);
@@ -14,8 +21,13 @@ export class AuditLogEntryService {
     return this.prisma.auditLogEntry.findMany(args);
   }
 
-  async createAuditLogEntry(args: Prisma.AuditLogEntryCreateArgs) {
-    return this.prisma.auditLogEntry.create(args);
+  async createAuditLogEntry(args: AuditLogEntryCreateArgs) {
+    return this.prisma.auditLogEntry.create(
+      this.uuid.injectIdIntoArgs<
+        PrismaCreateInput<Prisma.AuditLogEntryCreateInput>,
+        AuditLogEntryCreateArgs
+      >(args)
+    );
   }
 
   async updateAuditLogEntry(args: Prisma.AuditLogEntryUpdateArgs) {
